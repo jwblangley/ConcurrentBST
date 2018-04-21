@@ -59,8 +59,155 @@ public class ConcurrentBST<T extends Comparable<T>> implements BinarySearchTree<
 
   @Override
   public boolean remove(T obj) {
-    return false;
+    rootLock.lock();
+
+    if (root == null) {
+      rootLock.unlock();
+      return false;
+    }
+    root.getLock();
+
+    if (root.getItem().compareTo(obj) == 0) {
+      if (root.getLeft() != null && root.getRight() != null) {
+        LockableNode<T> newRoot = findMaxNodeAndDisconnect(root.getLeft());
+        newRoot.setRight(root.getRight());
+        if (newRoot != root.getLeft()) {
+          newRoot.setLeft(root.getLeft());
+        }
+        root = newRoot;
+
+        size.decrementAndGet();
+        newRoot.getLock().unlock();
+        rootLock.unlock();
+        return true;
+
+      } else if (root.getRight() == null) {
+        root = root.getLeft();
+        size.decrementAndGet();
+        rootLock.unlock();
+        return true;
+      } else if (root.getLeft() == null) {
+        root = root.getRight();
+        size.decrementAndGet();
+        rootLock.unlock();
+        return true;
+      } else {
+        root = null;
+        size.decrementAndGet();
+        rootLock.unlock();
+        return true;
+      }
+    } else {
+      LockableNode<T> curr;
+      LockableNode<T> parent;
+
+      parent = root;
+      parent.getLock().lock();
+      rootLock.unlock();
+
+      curr = root;
+
+      while (true) {
+        parent = curr;
+        curr = (obj.compareTo(curr.getItem()) < 0) ? curr.getLeft() : curr.getRight();
+
+        if (curr == null) {
+          parent.getLock().unlock();
+          return false;
+        } else {
+          curr.getLock().lock();
+          if (obj.compareTo(curr.getItem()) == 0) {
+            break;
+          } else {
+            parent.getLock().unlock();
+          }
+        }
+      }
+
+      // curr is node to remove
+      // curr and parent locked
+      boolean leftOfParent = curr.getItem().compareTo(parent.getItem()) < 0;
+      if (curr.getLeft() != null && curr.getRight() != null) {
+        LockableNode<T> replacementNode = findMaxNodeAndDisconnect(curr.getLeft());
+        replacementNode.setRight(curr.getRight());
+        if (replacementNode != curr.getLeft()) {
+          replacementNode.setLeft(curr.getLeft());
+        }
+        if (leftOfParent) {
+          parent.setLeft(replacementNode);
+        } else {
+          parent.setRight(replacementNode);
+        }
+
+        replacementNode.getLock().unlock();
+
+        size.decrementAndGet();
+        curr.getLock().unlock();
+        parent.getLock().unlock();
+        return true;
+
+      } else if (curr.getRight() == null) {
+        if (leftOfParent) {
+          parent.setLeft(curr.getLeft());
+        } else {
+          parent.setRight(curr.getLeft());
+        }
+
+        size.decrementAndGet();
+        curr.getLock().unlock();
+        parent.getLock().unlock();
+        return true;
+      } else if (curr.getLeft() == null) {
+        if (leftOfParent) {
+          parent.setLeft(curr.getRight());
+        } else {
+          parent.setRight(curr.getRight());
+        }
+
+        size.decrementAndGet();
+        curr.getLock().unlock();
+        parent.getLock().unlock();
+        return true;
+      } else {
+        if (leftOfParent) {
+          parent.setLeft(null);
+        } else {
+          parent.setRight(null);
+        }
+
+        size.decrementAndGet();
+        curr.getLock().unlock();
+        parent.getLock().unlock();
+        return true;
+      }
+    }
+
   }
+
+  private LockableNode<T> findMaxNodeAndDisconnect(final LockableNode<T> node) {
+    //leaves returned node locked
+    node.getLock().lock();
+    LockableNode<T> parent = node;
+    LockableNode<T> current = node;
+
+    while (current.getRight() != null) {
+      parent = current;
+      current = current.getRight();
+
+      current.getLock().lock();
+      if (current.getRight() != null) {
+        parent.getLock().unlock();
+      }
+    }
+
+    //disconnect
+    if (current != node) {
+      parent.setRight(current.getLeft());
+      parent.getLock().unlock();
+    }
+    return current;
+  }
+
 
   @Override
   public int size() {
@@ -69,7 +216,7 @@ public class ConcurrentBST<T extends Comparable<T>> implements BinarySearchTree<
 
   @Override
   public String toString() {
-    return root.toString();
+    return (root != null) ? root.toString() : "null";
   }
 
   @Override
