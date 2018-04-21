@@ -1,5 +1,7 @@
 package jwblangley.BST;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -68,5 +70,22 @@ public class ConcurrentBST<T extends Comparable<T>> implements BinarySearchTree<
   @Override
   public String toString() {
     return root.toString();
+  }
+
+  @Override
+  public synchronized List<T> inOrderTraversal() {
+    List<T> iot = new ArrayList<>();
+    dfs(iot, root);
+    return iot;
+  }
+
+  private void dfs(List<T> list, LockableNode<T> currentNode) {
+    if (currentNode == null) {
+      return;
+    }
+
+    dfs(list, currentNode.getLeft());
+    list.add(currentNode.getItem());
+    dfs(list, currentNode.getRight());
   }
 }

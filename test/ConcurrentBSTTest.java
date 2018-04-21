@@ -1,6 +1,8 @@
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import java.util.Iterator;
+import java.util.List;
 import jwblangley.BST.BinarySearchTree;
 import jwblangley.BST.ConcurrentBST;
 import jwblangley.BST.LockableNode;
@@ -39,5 +41,26 @@ public class ConcurrentBSTTest {
     assertEquals(
         "(Node:5, L:(Node:3, L:null, R:(Node:4, L:null, R:null)), R:(Node:7, L:null, R:null))",
         bst.toString());
+
+    assert isSorted(bst);
+  }
+
+  private <T extends Comparable<T>> boolean isSorted(BinarySearchTree<T> bst) {
+    List<T> sortResult = bst.inOrderTraversal();
+//    sortResult.stream().map(t -> t+",").forEach(System.out::print);
+    if (sortResult.size() == 0) {
+      return true;
+    }
+
+    Iterator<T> iter = sortResult.iterator();
+    T t1 = iter.next();
+    while (iter.hasNext()) {
+      T t2 = iter.next();
+      if (t1.compareTo(t2) > 0) {
+        return false;
+      }
+      t1 = t2;
+    }
+    return true;
   }
 }
